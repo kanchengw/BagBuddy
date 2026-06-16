@@ -178,8 +178,6 @@ result = agent_executor.invoke({"input": user_input})
 **差异**：
 - LangChain 需手动构造 `AIMessage` / `ToolMessage` 对象；CNLLM 的 `ContextBox` 一行完成 assistant + tool_calls + tool 结果的消息构造
 - AgentExecutor 封装了循环，但一旦需要拦截逻辑（如 BagBuddy 中的邮箱收集逻辑），就必须回归手动循环方案。
-- CNLLM 的下一步是实现类似 AgentExecutor 的封装，但保留足够的灵活性来支撑类似中途拦截的场景。 
-
 
 ### 3. 上下文构建：多行 vs 一行
 
@@ -209,5 +207,7 @@ messages += ContextBox(resp.still, resp.think, resp.tools, executor=execute_tool
 | 工具编排（AgentExecutor） | 黑盒，无法中途拦截 | 无此概念（手动循环天然可控） |
 | 中间结果拦截 | 手动循环：`if needs_email: yield`；AgentExecutor：需 LangGraph | `if needs_email: yield`（同手动循环） |
 | 兼容性 | 需对齐 OpenAI message 格式 | CNLLM 原生输出已是标准格式，可直接喂给下一轮 |
+
+- CNLLM 的下一步是实现类似 AgentExecutor 的封装，但保留足够的灵活性来支撑类似中途拦截的场景。 
 
 
