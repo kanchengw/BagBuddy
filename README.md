@@ -85,5 +85,129 @@ Every query triggers automatic semantic retrieval before the agent loop:
 | Payments | Stripe (test mode) |
 | Search | Hybrid: PostgreSQL ILIKE + pgvector semantic similarity |
 
+## Why CNLLM? ——对比 OpenAI SDK 与 LangChain
+
+BagBuddy 完全基于 CNLLM 构建，未使用 OpenAI SDK、LiteLLM 或 LangChain。以下从三个核心维度做对比，展示 CNLLM 的实际设计取舍。
+
+### 1. 流式响应字段累积：CNLLM 自动 vs 手动
+
+**OpenAI SDK** — 每个 chunk 只携带增量 delta，需要手动拼装：
+
+```python
+content = ""
+tool_calls = {}
+for chunk in client.chat.completions.create(model="...", messages=messages, stream=True):
+    delta = chunk.choices[0].delta
+    if delta.content:
+        content += delta.content
+    if delta.tool_calls:
+        for tc in delta.tool_calls:
+            idx = tc.index
+            if idx not in tool_calls:
+                tool_calls[idx] = {"id": "", "function": {"name": "", "arguments": ""}}
+            if tc.id:           tool_calls[idx]["id"] = tc.id
+            if tc.function.name: tool_calls[idx]["function"]["name"] += tc.function.name
+            if tc.function.arguments: tool_calls[idx]["function"]["arguments"] += tc.function.arguments
+```
+
+**CNLLM** — 内部自动累积增量字段，消费完流后直接取属性：
+
+```python
+resp = client.chat.create(prompt="...", stream=True, tools=[...])
+for chunk in resp:               # 消费流（无其他样板）
+    pass
+print(resp.still)                 # 完整文本
+print(resp.think)                 # 推理内容
+print(resp.tools)                 # 完整 tool_calls 列表（已是 OpenAI 标准格式）
+```
+
+**差异**：CNLLM 在 `resp` 对象上做了增量自动累积，省去手动拼装的 ~15 行样板。对于大规模多轮调用，这种差异会累积为可观的代码量。
+
+### 2. 多轮 Tool Calling 编排：同等能力，不同写法
+
+两者都可以用 for 循环手动编排，核心逻辑等价。以下为 BagBuddy 案例中"检查用户邮箱 → 中断 → 发前端事件"的场景：
+
+**手动循环（LangChain 与 CNLLM 都可实现，写法接近）：**
+
+```python
+# LangChain 手动循环
+from langchain_core.messages import AIMessage, ToolMessage, HumanMessage
+
+while True:
+    resp = llm.invoke(messages)                       # 单次 LLM 调用
+    if isinstance(resp, AIMessage) and resp.tool_calls:
+        for tc in resp.tool_calls:
+            result = execute_tool(tc)                  # 执行工具
+            if result.get("needs_email"):
+                yield {"type": "request_email", ...}   # 中断并发事件
+                return
+            messages.append(ToolMessage(content=str(result), tool_call_id=tc["id"]))
+        continue
+    messages.append(resp)
+    yield resp.content
+    break
+```
+
+```python
+# CNLLM 手动循环
+while True:
+    resp = client.chat.create(messages=messages, tools=[...])
+    if resp.tools:
+        for tc_raw in resp.tools:
+            result = execute_tool(tc_raw)               # 执行工具
+            if result.get("needs_email"):
+                yield {"type": "request_email", ...}    # 中断并发事件
+                return
+            messages += ContextBox("", "", [tc_raw])    # 注入工具结果
+        continue
+    messages += ContextBox(resp.still, resp.think, [])
+    yield resp.still
+    break
+```
+
+**对比 AgentExecutor（黑盒方案）：**
+
+```python
+from langchain.agents import AgentExecutor, create_tool_calling_agent
+agent = create_tool_calling_agent(llm, tools, prompt)
+agent_executor = AgentExecutor(agent=agent, tools=tools, max_iterations=5)
+result = agent_executor.invoke({"input": user_input})
+# result["output"] 拿到最终回复，但中间过程不可干预
+```
+
+**差异**：
+- LangChain 需手动构造 `AIMessage` / `ToolMessage` 对象；CNLLM 的 `ContextBox` 一行完成 assistant + tool_calls + tool 结果的消息构造
+- AgentExecutor 封装了循环，但一旦需要拦截逻辑（如 BagBuddy 中的邮箱收集逻辑），就必须回归手动循环方案。
+- CNLLM 的下一步是实现类似 AgentExecutor 的封装，但保留足够的灵活性来支撑类似中途拦截的场景。 
+
+
+### 3. 上下文构建：多行 vs 一行
+
+**OpenAI SDK / LangChain 通用做法：**
+
+```python
+messages.append({"role": "assistant", "content": text, "tool_calls": raw_tool_calls})
+for tc in raw_tool_calls:
+    messages.append({"role": "tool", "tool_call_id": tc["id"], "content": str(result)})
+```
+
+**CNLLM ContextBox：**
+
+```python
+messages += ContextBox(resp.still, resp.think, resp.tools, executor=execute_tool)
+```
+
+`ContextBox` 是一个 `list` 子类，构造函数内部自动生成一个 `assistant` 消息（含 tool_calls）+ N 条 `tool` 消息（通过 `executor` 执行工具取结果）。也可不传 `executor`，手动处理后再构建。
+
+### 对比总结
+
+| 维度 | OpenAI / LangChain 方案 | CNLLM 方案 |
+|------|------------------------|------------|
+| 流式累积 | ~15 行手动拼装 | `resp.still` / `.think` / `.tools` 自动累积 |
+| 上下文构建 | 手动构造 assistant + tool_calls + tool 结果 | `ContextBox()` 一行完成 |
+| 工具编排（手动循环） | 等价，写法接近 | 等价，写法接近 |
+| 工具编排（AgentExecutor） | 黑盒，无法中途拦截 | 无此概念（手动循环天然可控） |
+| 中间结果拦截 | 手动循环：`if needs_email: yield`；AgentExecutor：需 LangGraph | `if needs_email: yield`（同手动循环） |
+| 兼容性 | 需对齐 OpenAI message 格式 | CNLLM 原生输出已是标准格式，可直接喂给下一轮 |
 
 

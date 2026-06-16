@@ -319,11 +319,6 @@ def format_product_details(product):
     return chr(10).join(lines)
 
 
-    return (
-        f"To purchase the **{name}** ({price_str}), please provide your email address "
-        f"so I can send you the receipt and create a secure checkout link."
-    )
-
 
 def _build_tools():
 
