@@ -65,7 +65,7 @@ def format_sql_results(results: list, sql: str = "") -> str:
         brand = row.get("brand", "")
         info = f"  {i}. **{name}**"
         if price:
-            dollar = chr(36)
+            dollar = "$"
             info += f" | {dollar}{float(price):.2f}" if isinstance(price, (int, float)) else f" | {dollar}{price}"
         if rating:
             info += f" | Star {float(rating):.1f}/5"

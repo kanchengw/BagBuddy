@@ -2,14 +2,6 @@
 import httpx
 from config import PROXY_BASE_URL
 
-_proxy = None
-
-def _get_proxy():
-    global _proxy
-    if _proxy is None:
-        _proxy = PROXY_BASE_URL
-    return _proxy
-
 
 def create_checkout_session(
     product_id: str,
@@ -18,8 +10,7 @@ def create_checkout_session(
     user_email: str = None
 ) -> str:
     """Create a Stripe Checkout session via proxy and return the payment URL"""
-    proxy = _get_proxy()
-    if not proxy:
+    if not PROXY_BASE_URL:
         raise Exception("PROXY_BASE_URL not configured. Set it in .env")
 
     payload = {
@@ -33,7 +24,8 @@ def create_checkout_session(
         payload["user_email"] = user_email
 
     try:
-        resp = httpx.post(f"{proxy}/stripe/checkout", json=payload, timeout=15)
+        resp = httpx.post(f"{PROXY_BASE_URL}/stripe/checkout", json=payload,
+            timeout=httpx.Timeout(connect=4.0, read=10.0, write=4.0, pool=4.0))
         resp.raise_for_status()
         data = resp.json()
         if data.get("error"):
@@ -47,12 +39,12 @@ def create_checkout_session(
 
 def get_session(session_id: str) -> dict:
     """Retrieve a Checkout session by ID via proxy"""
-    proxy = _get_proxy()
-    if not proxy:
+    if not PROXY_BASE_URL:
         return {"id": session_id, "status": "unknown"}
-
     try:
-        resp = httpx.post(f"{proxy}/stripe/session", json={"session_id": session_id}, timeout=10)
+        resp = httpx.post(f"{PROXY_BASE_URL}/stripe/session",
+            json={"session_id": session_id},
+            timeout=httpx.Timeout(connect=4.0, read=8.0, write=4.0, pool=4.0))
         resp.raise_for_status()
         return resp.json()
     except Exception:
@@ -61,12 +53,11 @@ def get_session(session_id: str) -> dict:
 
 def get_stripe_account_info() -> dict:
     """Get Stripe account info via proxy"""
-    proxy = _get_proxy()
-    if not proxy:
+    if not PROXY_BASE_URL:
         return {"business_name": "Stripe Merchant", "email": "", "country": ""}
-
     try:
-        resp = httpx.get(f"{proxy}/stripe/account", timeout=10)
+        resp = httpx.get(f"{PROXY_BASE_URL}/stripe/account",
+            timeout=httpx.Timeout(connect=4.0, read=8.0, write=4.0, pool=4.0))
         resp.raise_for_status()
         return resp.json()
     except Exception:

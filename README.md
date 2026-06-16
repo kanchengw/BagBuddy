@@ -1,4 +1,11 @@
-﻿# BagBuddy - AI Shopping Assistant
+﻿
+## Network Requirement
+
+BagBuddy relies on a Cloudflare Workers proxy (`workers.dev`) for Supabase database access, Stripe payments, and Langfuse observability. In some regions (notably mainland China), `workers.dev` may be blocked or unreliable.
+
+- If you experience timeouts or connection errors, **use a VPN** or ensure your network can reach `workers.dev`.
+
+## BagBuddy - AI Shopping Assistant
 
 AI-powered e-commerce agent with product search, RAG, multi-turn tool calling, Stripe payments, and LLM-based evaluation.
 
@@ -18,7 +25,7 @@ Open http://localhost:9000.
 
 ## Zero Config: Proxy Architecture
 
-All service credentials (Stripe secret key, Langfuse API keys, Supabase service role key) are stored server-side in a **Cloudflare Worker** - never in the repo or user .env.
+All service credentials (Stripe secret key, Langfuse API keys, Supabase service role key) are stored server-side in a **Cloudflare Worker**, VPN is required to access the proxy.
 
 The worker at `https://bagbuddy-proxy.wangkancheng1122.workers.dev` proxies:
 - **Supabase** - REST API (product queries, pgvector search)
@@ -26,8 +33,6 @@ The worker at `https://bagbuddy-proxy.wangkancheng1122.workers.dev` proxies:
 - **Langfuse** - Trace ingestion and dashboard queries
 
 Users only need to provide their own **LLM API key** in .env. The .env.public (committed to git) contains just the proxy URL and app config - no secrets.
-
-To deploy your own proxy, see `proxy-worker.js` and set worker secrets via `npx wrangler secret put <KEY_NAME>`.
 
 ## Architecture
 

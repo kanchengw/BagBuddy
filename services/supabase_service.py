@@ -31,43 +31,37 @@ def _headers():
 
 def _api(path: str) -> str:
     from config import PROXY_BASE_URL
-    return PROXY_BASE_URL.rstrip(chr(47)) + chr(47) + 'supabase/' + path.lstrip(chr(47))
+    return PROXY_BASE_URL.rstrip("/") + "/supabase/" + path.lstrip("/")
 
 _products_cache = None
 
 def get_all_products_db() -> list:
-    """Fetch all products from Supabase (with cache)"""
+    """Fetch all products from Supabase via proxy (with cache)"""
     global _products_cache
     if _products_cache is not None:
         return _products_cache
-    import time as _t
-    for attempt in range(3):
-        try:
-            r = httpx.get(_api("products"), headers=_headers(), timeout=15)
-            r.raise_for_status()
-            _products_cache = r.json()
-            return _products_cache
-        except Exception as e:
-            if attempt < 2:
-                _t.sleep(1)
-            else:
-                return []
-    return []
+    try:
+        r = httpx.get(_api("products"), headers=_headers(),
+            timeout=httpx.Timeout(connect=4.0, read=8.0, write=4.0, pool=4.0))
+        r.raise_for_status()
+        _products_cache = r.json()
+        return _products_cache
+    except:
+        return []
 
 def get_product_db(product_id: str) -> dict | None:
-    """Get a single product by ID. Handles both list/object (proxy strips Accept header)."""
-    headers = _headers()
-    r = httpx.get(
-        _api(f"products?id=eq.{product_id}"),
-        headers=headers,
-        timeout=10,
-    )
-    if r.status_code == 200:
-        data = r.json()
-        if isinstance(data, list) and len(data) > 0:
-            return data[0]
-        if isinstance(data, dict):
-            return data
+    """Get a single product by ID via proxy. Handles both list/object."""
+    try:
+        r = httpx.get(_api(f"products?id=eq.{product_id}"), headers=_headers(),
+            timeout=httpx.Timeout(connect=4.0, read=8.0, write=4.0, pool=4.0))
+        if r.status_code == 200:
+            data = r.json()
+            if isinstance(data, list) and len(data) > 0:
+                return data[0]
+            if isinstance(data, dict):
+                return data
+    except:
+        pass
     return None
 
 
@@ -141,7 +135,7 @@ def upsert_product(product: dict) -> dict:
         _api("products"),
         headers=_headers(),
         json=data,
-        timeout=10,
+        timeout=httpx.Timeout(connect=4.0, read=10.0, write=4.0, pool=4.0),
     )
     if r.status_code == 201:
         return r.json()[0] if r.json() else data
@@ -150,7 +144,7 @@ def upsert_product(product: dict) -> dict:
         _api(f"products?id=eq.{product['id']}"),
         headers=_headers(),
         json=data,
-        timeout=10,
+        timeout=httpx.Timeout(connect=4.0, read=10.0, write=4.0, pool=4.0),
     )
     return r2.json()[0] if r2.status_code == 200 and r2.json() else data
 
@@ -166,7 +160,7 @@ def upsert_embedding(product_id: str, chunk_text: str, chunk_type: str, embeddin
         _api("product_embeddings_v2"),
         headers=_write_headers(),
         json=data,
-        timeout=10,
+        timeout=httpx.Timeout(connect=4.0, read=10.0, write=4.0, pool=4.0),
     )
     if r.status_code == 201:
         return r.json()[0] if r.json() else data
@@ -181,16 +175,14 @@ def get_all_embeddings_db() -> list:
     global _embeddings_cache
     if _embeddings_cache is not None:
         return _embeddings_cache
-    import time
-    for attempt in range(3):
-        try:
-            r = httpx.get(_api("product_embeddings_v2?select=id,product_id,chunk_text,chunk_type,embedding"), headers=_headers(), timeout=30)
-            if r.status_code == 200:
-                _embeddings_cache = r.json()
-                return _embeddings_cache
-        except Exception:
-            if attempt < 2:
-                time.sleep(1)
+    try:
+        r = httpx.get(_api("product_embeddings_v2?select=id,product_id,chunk_text,chunk_type,embedding"), headers=_headers(),
+            timeout=httpx.Timeout(connect=4.0, read=8.0, write=4.0, pool=4.0))
+        if r.status_code == 200:
+            _embeddings_cache = r.json()
+            return _embeddings_cache
+    except:
+        pass
     return []
 
 def semantic_search(query_embedding: list, top_k: int = 5) -> list:

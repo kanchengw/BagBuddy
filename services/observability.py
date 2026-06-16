@@ -10,20 +10,21 @@ _lf_api = None
 def _get_api():
     global _lf_api
     if _lf_api is None:
-        if PROXY_BASE_URL:
-            # All secrets handled by proxy - no credentials needed
-            try:
-                _lf_api = LangfuseAPI(base_url=PROXY_BASE_URL)
-            except Exception:
-                pass
-        elif LANGFUSE_PUBLIC_KEY and LANGFUSE_SECRET_KEY:
-            # Direct fallback (user has local keys)
+        # 1) Direct credentials preferred (bypass blocked proxy)
+        if LANGFUSE_PUBLIC_KEY and LANGFUSE_SECRET_KEY:
             try:
                 _lf_api = LangfuseAPI(
                     base_url=LANGFUSE_HOST.rstrip("/"),
                     username=LANGFUSE_PUBLIC_KEY,
                     password=LANGFUSE_SECRET_KEY,
                 )
+                return _lf_api
+            except Exception:
+                pass
+        # 2) Proxy fallback (holds credentials for users without direct keys)
+        if PROXY_BASE_URL:
+            try:
+                _lf_api = LangfuseAPI(base_url=PROXY_BASE_URL)
             except Exception:
                 pass
     return _lf_api

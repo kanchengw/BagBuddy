@@ -8,18 +8,21 @@ _lf_api = None
 def _get_lf_api():
     global _lf_api
     if _lf_api is None:
-        if PROXY_BASE_URL:
-            try:
-                _lf_api = LangfuseAPI(base_url=PROXY_BASE_URL)
-            except Exception:
-                pass
-        elif LANGFUSE_PUBLIC_KEY and LANGFUSE_SECRET_KEY:
+        # 1) Direct credentials preferred
+        if LANGFUSE_PUBLIC_KEY and LANGFUSE_SECRET_KEY:
             try:
                 _lf_api = LangfuseAPI(
                     base_url=LANGFUSE_HOST.rstrip("/"),
                     username=LANGFUSE_PUBLIC_KEY,
                     password=LANGFUSE_SECRET_KEY,
                 )
+                return _lf_api
+            except Exception:
+                pass
+        # 2) Proxy fallback
+        if PROXY_BASE_URL:
+            try:
+                _lf_api = LangfuseAPI(base_url=PROXY_BASE_URL)
             except Exception:
                 pass
     return _lf_api
@@ -30,8 +33,6 @@ _cache = {"data": None, "timestamp": 0}
 _session_evals = []
 CACHE_TTL = 30
 SERVER_START_TIME = datetime.now(timezone.utc)
-
-
 def record_latency(latency_ms):
     _latencies.append(latency_ms / 1000.0)
 
@@ -87,6 +88,7 @@ def get_dashboard_data(hours=168):
         from_ts = max(now - timedelta(hours=hours), SERVER_START_TIME)
 
         traces_data = []
+        _use_local = False
         if api:
             try:
                 resp = api.trace.list(
@@ -192,7 +194,11 @@ def get_dashboard_data(hours=168):
         _cache["timestamp"] = now_ts
         return result
     except Exception:
-        fallback = {"total_conversations": 0, "total_conversations_display": "0", "avg_response_time": "N/A", "conversion_rate": "0.0%", "search_success_rate": "0.0%", "purchase_count": 0, "daily_volume": [{"day": (datetime.now(timezone.utc) - timedelta(days=i)).strftime("%a"), "count": 0} for i in range(7, 0, -1)], "recent_traces": [], "langfuse_url": LANGFUSE_HOST, "avg_latency": 0}
+        fallback = {"total_conversations": 0, "total_conversations_display": "0",
+                    "avg_response_time": "N/A", "conversion_rate": "0.0%",
+                    "search_success_rate": "0.0%", "purchase_count": 0,
+                    "daily_volume": [], "recent_traces": [],
+                    "langfuse_url": LANGFUSE_HOST, "avg_latency": 0}
         _cache["data"] = fallback
         _cache["timestamp"] = now_ts
         return fallback

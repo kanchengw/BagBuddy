@@ -27,6 +27,7 @@ LANGFUSE_SECRET_KEY = os.getenv("LANGFUSE_SECRET_KEY", "")
 LANGFUSE_HOST = os.getenv("LANGFUSE_HOST", "https://jp.cloud.langfuse.com")
 
 
+
 # Proxy configuration (all secret keys are held by the proxy server)
 PROXY_BASE_URL = os.getenv("PROXY_BASE_URL", "").rstrip("/")
 # Application

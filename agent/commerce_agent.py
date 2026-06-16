@@ -1,8 +1,7 @@
 import json, uuid, re, os
 
-from cnllm import CNLLM, ToolCollector, ContextBox
+from cnllm import CNLLM, ContextBox
 
-import httpx
 
 from services.supabase_service import (
     get_product_db as get_product_by_id,
@@ -45,7 +44,6 @@ def get_async_llm_client():
     return asyncCNLLM(model=LLM_MODEL, api_key=LLM_API_KEY, base_url=LLM_BASE_URL)
 
 
-DOLLAR = chr(36)
 
 
 def get_product_by_name(name):
@@ -188,7 +186,7 @@ def format_search_results(products):
 
         return (
             "I couldn"
-            + chr(39)
+            + "'"
             + "t find any products matching your query. Try different keywords or browse our categories: Smartphones, Laptops, Tablets, Headphones & Audio, Smartwatches & Wearables, Gaming, Cameras, Streaming & TV, Speakers, Smart Home, VR & AR, Accessories, Networking, Drones, Fitness Tech."
         )
     lines = []
@@ -203,7 +201,7 @@ def format_search_results(products):
         rating = p.get("rating", 0)
         brand = p.get("brand", "Various")
         price_str = (
-            f"{DOLLAR}{price:.2f}" if isinstance(price, (int, float)) else str(price)
+            f"${price:.2f}" if isinstance(price, (int, float)) else str(price)
         )
         rating_str = (
             f"\u2b50 {rating}/5" if isinstance(rating, (int, float)) else str(rating)
@@ -211,7 +209,7 @@ def format_search_results(products):
         lines.append(f"| **{name}** | {price_str} | {rating_str} | {brand} |")
     lines.append("")
     lines.append(
-        "Tell me if you" + chr(39) + "d like more details on any specific product!"
+        "Tell me if you" + "'" + "d like more details on any specific product!"
     )
 
     return chr(10).join(lines)
@@ -223,7 +221,7 @@ def format_product_details(product):
 
         return (
             "I couldn"
-            + chr(39)
+            + "'"
             + "t find that product. Please check the product ID and try again."
         )
     name = product.get("name", "Unknown")
@@ -271,7 +269,7 @@ def format_product_details(product):
         except:
             sizes = []
     price_str = (
-        f"{DOLLAR}{price:.2f}" if isinstance(price, (int, float)) else str(price)
+        f"${price:.2f}" if isinstance(price, (int, float)) else str(price)
     )
     rating_str = (
         f"\u2b50 {rating}/5" if isinstance(rating, (int, float)) else str(rating)
@@ -321,19 +319,6 @@ def format_product_details(product):
     return chr(10).join(lines)
 
 
-def handle_purchase(session_state):
-
-    if not session_state.pending_purchase:
-
-        return "No pending purchase found. What product would you like to buy?"
-
-    product = session_state.pending_purchase
-    name = product.get("name", "Unknown")
-    price = product.get("price", 0)
-    price_str = (
-        f"{DOLLAR}{price:.2f}" if isinstance(price, (int, float)) else str(price)
-    )
-
     return (
         f"To purchase the **{name}** ({price_str}), please provide your email address "
         f"so I can send you the receipt and create a secure checkout link."
@@ -354,13 +339,13 @@ def _build_tools():
                         "query": {
                             "type": "string",
                             "description": "Search query like "
-                            + chr(39)
+                            + "'"
                             + "wireless headphones"
-                            + chr(39)
+                            + "'"
                             + ", "
-                            + chr(39)
+                            + "'"
                             + "iPhones"
-                            + chr(39)
+                            + "'"
                             + ", or empty string for all products",
                         }
                     },
@@ -373,13 +358,13 @@ def _build_tools():
             "function": {
                 "name": "get_product_by_name",
                 "description": "Get detailed info about a specific product by its name (e.g. "
-                + chr(39)
+                + "'"
                 + "iPhone 15 Pro Max"
-                + chr(39)
+                + "'"
                 + ", "
-                + chr(39)
+                + "'"
                 + "Sony WH-1000XM5"
-                + chr(39)
+                + "'"
                 + ").",
                 "parameters": {
                     "type": "object",
@@ -666,16 +651,6 @@ def _execute_tool(tc):
     return {"name": name, "result": None}
 
 
-def _execute_tool_for_contextbox(tool_call):
-    """Wrapper for ContextBox executor - takes a single tool_call dict and returns result."""
-    result = _execute_tool(tool_call)
-
-    if result.get("result") and isinstance(result["result"], str):
-
-        return result["result"]
-
-    return str(result.get("result", ""))
-
 
 def process_user_message(message, session_state):
 
@@ -696,28 +671,16 @@ def process_user_message(message, session_state):
 
         return {"text": error_text, "message_type": "normal"}
 
-    collector = ToolCollector()
-    full_content = []
-
-    with resp.repr as view:
-
-        for chunk in resp:
-
-            if chunk.still:
-                full_content.append(chunk.still)
-
-            if chunk.tools:
-                collector.update(chunk.tools)
-            view.refresh()
-    final_text = "".join(full_content)
-    final_tools = resp.tools
+    for chunk in resp:
+        pass
+    final_text = resp.still if resp.still else ""
 
     if final_text:
         final_text = _strip_dsml_tags(final_text)
 
-    if final_tools:
+    if resp.tools:
 
-        for tc_raw in final_tools:
+        for tc_raw in resp.tools:
             result = _execute_tool(tc_raw)
             name = result["name"]
 
@@ -731,7 +694,7 @@ def process_user_message(message, session_state):
                 else:
                     formatted = (
                         "I couldn"
-                        + chr(39)
+                        + "'"
                         + "t find any products matching your query."
                     )
                 session_state.add_message("assistant", formatted)
@@ -777,7 +740,7 @@ def process_user_message(message, session_state):
                 else:
                     formatted = (
                         "I couldn"
-                        + chr(39)
+                        + "'"
                         + "t find that product. Please try a different name."
                     )
                 session_state.add_message("assistant", formatted)
@@ -796,7 +759,7 @@ def process_user_message(message, session_state):
                     session_state.current_product = p
 
                 else:
-                    formatted = "I couldn" + chr(39) + "t find that product."
+                    formatted = "I couldn" + "'" + "t find that product."
                 session_state.add_message("assistant", formatted)
 
                 return {
@@ -808,7 +771,7 @@ def process_user_message(message, session_state):
             elif name == "text_to_sql":
                 formatted = (
                     result["result"]
-                    or "I looked that up but didn" + chr(39) + "t find anything."
+                    or "I looked that up but didn" + "'" + "t find anything."
                 )
                 session_state.add_message("assistant", formatted)
 
@@ -823,13 +786,13 @@ def process_user_message(message, session_state):
                     p = get_product_by_name(pname) if pname != "Product" else None
                     price = p.get("price", 0) if p else 0
                     price_str = (
-                        f"{DOLLAR}{price:.2f}"
+                        f"${price:.2f}"
                         if isinstance(price, (int, float))
                         else str(price)
                     )
                     formatted = (
                         f"Great! Here"
-                        + chr(39)
+                        + "'"
                         + "s your checkout link for the **{pname}** ({price_str}):\n\n"
                         f"<a href='{url}' target='_blank' rel='noopener' style='display:inline-block;padding:12px 28px;background:#c8553d;color:#fff;border-radius:8px;text-decoration:none;font-weight:600;font-size:15px;margin:10px 0'>🤑 Pay with Stripe</a>\n\n"
                         f"A receipt will be sent to {email}. Thank you for shopping with BagBuddy! \U0001f389"
@@ -847,7 +810,7 @@ def process_user_message(message, session_state):
     if not final_text:
         final_text = (
             "I"
-            + chr(39)
+            + "'"
             + "m not sure how to help with that. I can help you find products, compare items, or make a purchase. What are you looking for?"
         )
     session_state.add_message("assistant", final_text)
@@ -971,14 +934,6 @@ async def async_stream_agent_response(message, session_state):
     msgs = [{"role": "system", "content": SYSTEM_PROMPT}] + session_state.messages[-20:]
     tools = _build_tools()
 
-    try:
-        client = get_async_llm_client()
-    except ValueError as e:
-        text = str(e).replace("\\n", "\n")
-        yield {"type": "error", "content": text}
-        yield {"type": "done", "message_type": "error"}
-        return
-
     _final_tool_events = []
     _final_type = "search_results" if _rag_product_count >= 2 else "product_info" if _rag_product_count == 1 else "normal"
     _final_product_info = list(_rag_product_map.values())[0] if _rag_product_count == 1 else None
@@ -986,18 +941,20 @@ async def async_stream_agent_response(message, session_state):
     MAX_ROUNDS = 5
 
     for _round in range(MAX_ROUNDS):
-        collector = ToolCollector()
-        text_chunks = []
+        try:
+            client = get_async_llm_client()
+        except ValueError as e:
+            text = str(e).replace("\\n", "\n")
+            yield {"type": "error", "content": text}
+            yield {"type": "done", "message_type": "error"}
+            return
         try:
             resp = await client.chat.create(
                 messages=msgs, tools=tools, tool_choice="auto",
                 stream=True, thinking=False
             )
             async for chunk in resp:
-                if chunk.still:
-                    text_chunks.append(chunk.still)
-                if chunk.tools:
-                    collector.update(chunk.tools)
+                pass
         except Exception as e:
             error_text = f"Sorry, I encountered an error: {str(e)[:100]}"
             session_state.add_message("assistant", error_text)
@@ -1005,23 +962,11 @@ async def async_stream_agent_response(message, session_state):
             yield {"type": "done", "message_type": "error"}
             return
 
-        raw_text = "".join(text_chunks)
+        raw_text = resp.still if resp.still else ""
         final_text = _strip_dsml_tags(raw_text) if raw_text else ""
 
-        accumulated_tools = []
-        if collector.all:
-            for idx2 in sorted(collector.all.keys()):
-                tc_data = collector.all[idx2]
-                tc_raw = {
-                    "index": 0, "type": "function", "id": tc_data.get("id", ""),
-                    "function": {
-                        "name": tc_data.get("name", ""),
-                        "arguments": tc_data.get("args", "{}"),
-                    },
-                }
-                accumulated_tools.append(tc_raw)
 
-        if not accumulated_tools:
+        if not resp.tools:
             if not final_text:
                 final_text = "I'm not sure how to help with that. I can help you find products, compare items, or make a purchase. What are you looking for?"
             # Re-determine _final_type from response content if still "normal"
@@ -1045,7 +990,7 @@ async def async_stream_agent_response(message, session_state):
             return
 
         _cached_results = []
-        for tc_raw in accumulated_tools:
+        for tc_raw in resp.tools:
             name = tc_raw.get("function", {}).get("name", "")
             yield {"type": "tool_exec_start", "name": name}
             result = _execute_tool(tc_raw)
@@ -1067,7 +1012,7 @@ async def async_stream_agent_response(message, session_state):
                     except:
                         merchant_name = "Stripe Merchant"
                     yield {"type": "checkout_url", "url": url, "product_name": pname, "price": price, "email": email, "merchant_name": merchant_name}
-                    formatted = "Great! Here" + chr(39) + "s your checkout link for the **" + pname + "**:\n\n"
+                    formatted = "Great! Here" + "'" + "s your checkout link for the **" + pname + "**:\n\n"
                     formatted += '<a href="' + url + '" target="_blank" rel="noopener" style="display:inline-block;padding:12px 28px;background:#c8553d;color:#fff;border-radius:8px;text-decoration:none;font-weight:600;font-size:15px;margin:10px 0">&#x1f911; Pay with Stripe</a>'
                     session_state.pending_purchase = None
                 else:
@@ -1086,7 +1031,7 @@ async def async_stream_agent_response(message, session_state):
                     _final_type = "search_results"
                     _final_product_count = len(products)
                 else:
-                    formatted = "I couldn" + chr(39) + "t find any products matching your query."
+                    formatted = "I couldn" + "'" + "t find any products matching your query."
                     _final_tool_events.append({"type": "tool_result", "name": name, "text": formatted})
 
             elif name in ("get_product_by_name", "get_product_details"):
@@ -1098,16 +1043,16 @@ async def async_stream_agent_response(message, session_state):
                     _final_type = "product_info"
                     _final_product_info = p
                 else:
-                    formatted = "I couldn" + chr(39) + "t find that product."
+                    formatted = "I couldn" + "'" + "t find that product."
                     _final_tool_events.append({"type": "tool_result", "name": name, "text": formatted})
 
             elif name == "compare_products":
-                formatted = result["result"] or "I couldn" + chr(39) + "t compare those products."
+                formatted = result["result"] or "I couldn" + "'" + "t compare those products."
                 _final_tool_events.append({"type": "tool_result", "name": name, "text": formatted})
                 _final_type = "comparison"
 
             elif name == "text_to_sql":
-                formatted = str(result.get("result", "")) or "I didn" + chr(39) + "t find anything."
+                formatted = str(result.get("result", "")) or "I didn" + "'" + "t find anything."
                 _final_tool_events.append({"type": "tool_result", "name": name, "text": formatted})
 
             else:
@@ -1116,8 +1061,8 @@ async def async_stream_agent_response(message, session_state):
 
             _cached_results.append(result)
 
-        msgs += ContextBox(final_text if final_text else "", "", accumulated_tools)
-        for _tc_raw, _result in zip(accumulated_tools, _cached_results):
+        msgs += ContextBox(resp.still if resp.still else "", resp.think if resp.think else "", resp.tools if resp.tools else [])
+        for _tc_raw, _result in zip(resp.tools, _cached_results):
             _name = _result.get("name", "")
             _r_text = _result.get("result", "")
             # Use formatted text for known tools to prevent LLM hallucination
