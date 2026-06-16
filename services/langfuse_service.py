@@ -84,7 +84,7 @@ def get_dashboard_data(hours=168):
     try:
         api = _get_lf_api()
         now = datetime.now(timezone.utc)
-        from_ts = now - timedelta(hours=hours)
+        from_ts = max(now - timedelta(hours=hours), SERVER_START_TIME)
 
         traces_data = []
         if api:
