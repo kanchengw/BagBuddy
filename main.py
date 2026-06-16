@@ -19,7 +19,7 @@ import os
 cart_store = {}
 
 from agent.commerce_agent import process_user_message, get_session, ConversationState
-from services.stripe_service import create_checkout_session, get_stripe_account_info, get_session as get_stripe_session
+from services.stripe_service import create_checkout_session, create_line_items_checkout, get_stripe_account_info, get_session as get_stripe_session
 from services.observability import track_conversation, track_purchase, track_search
 from services.langfuse_service import get_dashboard_data, get_evaluation_data_from_traces, record_latency, record_session_eval, reset_session_eval
 from services.supabase_service import get_all_products_db as get_all_products, get_product_db as get_product_by_id, search_products_db as search_products
@@ -60,7 +60,9 @@ class SearchRequest(BaseModel):
 
 class CartAddRequest(BaseModel):
     session_id: str
-    product_id: str
+    product_id: str = ""
+    items: Optional[list] = None
+    user_email: Optional[str] = None
 
 
 class CartRemoveRequest(BaseModel):
@@ -273,40 +275,44 @@ async def get_cart(session_id: str):
 
 @app.post("/api/cart/checkout")
 async def checkout_cart(request: CartAddRequest):  # reuse CartAddRequest which has session_id
-    """Checkout all items in cart - create Stripe session for first item or combined"""
+    """Checkout cart items via proxy - single Stripe session with multiple line items"""
     sid = request.session_id
-    items = cart_store.get(sid, [])
+    # Accept items from request body first, fall back to server-side cart_store
+    items = request.items if request.items else cart_store.get(sid, [])
 
     if not items:
         raise HTTPException(status_code=400, detail="Cart is empty")
 
-    # For simplicity, create checkout for the first item (or could create line_items for all)
-    # Create combined checkout with all items as line items
-    try:
-        line_items = []
-        for item in items:
-            line_items.append({
-                "price_data": {
-                    "currency": "usd",
-                    "product_data": {
-                        "name": item["name"],
-                    },
-                    "unit_amount": int(item["price"] * 100),
-                },
-                "quantity": item["quantity"],
-            })
+    user_email = request.user_email or ""
 
-        session = stripe.checkout.Session.create(
-            mode="payment",
-            line_items=line_items,
-            success_url="http://localhost:9000/success?session_id={CHECKOUT_SESSION_ID}",
-            cancel_url="http://localhost:9000/cancel",
-        )
+    try:
+        checkout_url = create_line_items_checkout(items, user_email=user_email if user_email else None)
 
         # Clear cart after checkout initiated
         cart_store[sid] = []
 
-        return {"checkout_url": session.url, "message": "Checkout initiated"}
+        # Get merchant name for display
+        try:
+            acct = get_stripe_account_info()
+            merchant_name = acct.get("business_name", "Stripe Merchant")
+        except:
+            merchant_name = "Stripe Merchant"
+
+        total = sum(item.get("price", 0) * item.get("quantity", 1) for item in items)
+        product_names = ", ".join(item.get("name", "Product") for item in items)
+        item_count = sum(item.get("quantity", 1) for item in items)
+
+        return {
+            "checkout_url": checkout_url,
+            "product_name": f"{item_count} item(s) in cart",
+            "product_names": product_names,
+            "price": total,
+            "merchant_name": merchant_name,
+            "email": user_email or "",
+            "message": "Checkout initiated"
+        }
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

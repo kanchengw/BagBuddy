@@ -458,7 +458,7 @@ body {
         </div>
         <div class="cart-select-all">
             <input type="checkbox" id="select-all" onchange="toggleSelectAll()">
-            <label for="select-all">Select All for Comparison</label>
+            <label for="select-all">Select All</label>
         </div>
         <div class="cart-total">
             <span class="cart-total-label">Total</span>
@@ -470,6 +470,7 @@ body {
 
 <script>
 let sessionId = null;
+let storedEmail = '';
 let cart = [];
 const API_BASE = '';
 const STRIPE_PUBLIC_KEY = '';
@@ -587,8 +588,9 @@ async function sendMessage() {
                             // Show email popup for purchase
                             const pname = event.product_name || "Product";
                             const pid = event.product_id || "";
-                            const email = prompt("Please enter your email for the " + pname + " purchase:");
+                            const email = prompt("Please enter your email for the " + pname + " purchase:", storedEmail || "");
                             if (email) {
+                                storedEmail = email;
                                 showTyping();
                                 fetch(API_BASE + "/api/purchase", {
                                     method: "POST",
@@ -791,8 +793,9 @@ function addPaymentLink(text) {
     chat.appendChild(wrapper);
 }
 async function initPurchase(productId) {
-    const email = prompt('Please enter your email for the receipt:');
+    const email = prompt('Please enter your email for the receipt:', storedEmail || '');
     if (!email) return;
+    storedEmail = email;
     showTyping();
     try {
         const res = await fetch(API_BASE + '/api/purchase', {
@@ -866,7 +869,21 @@ function updateCartUI() {
         html += '</div>';
     });
     body.innerHTML = html;
-    document.getElementById('cart-total').textContent = String.fromCharCode(36) + total.toFixed(2);
+    updateCartFooter();
+}
+function updateCartFooter() {
+    var checkedTotal = 0;
+    var checkedCount = 0;
+    document.querySelectorAll('.cart-checkbox:checked').forEach(function(cb) {
+        var idx = parseInt(cb.getAttribute('data-idx'));
+        if (!isNaN(idx) && cart[idx]) {
+            checkedTotal += cart[idx].price * cart[idx].quantity;
+            checkedCount++;
+        }
+    });
+    document.getElementById('cart-total').textContent = String.fromCharCode(36) + checkedTotal.toFixed(2);
+    var checkoutBtn = document.querySelector('.cart-checkout-btn');
+    if (checkoutBtn) checkoutBtn.disabled = checkedCount === 0;
 }
 function updateCartBadge() {
     const badge = document.getElementById('cart-badge');
@@ -894,11 +911,13 @@ function updateCompareBtn() {
     const checked = document.querySelectorAll('.cart-checkbox:checked');
     const btn = document.querySelector('.cart-compare-btn');
     btn.disabled = checked.length < 2;
+    updateCartFooter();
 }
 function toggleSelectAll() {
     const checked = document.getElementById('select-all').checked;
     document.querySelectorAll('.cart-checkbox').forEach(cb => cb.checked = checked);
     updateCompareBtn();
+    updateCartFooter();
 }
 function compareSelected() {
     const checked = document.querySelectorAll('.cart-checkbox:checked');
@@ -912,9 +931,72 @@ function compareSelected() {
     toggleCart();
     sendMessage();
 }
-function checkout() {
-    addMessage('To checkout, please tell me which product you would like to purchase.', 'assistant');
+async function checkout() {
     toggleCart();
+    if (cart.length === 0) return;
+    var checkedCart = [];
+    document.querySelectorAll('.cart-checkbox:checked').forEach(function(cb) {
+        var idx = parseInt(cb.getAttribute('data-idx'));
+        if (!isNaN(idx) && cart[idx]) {
+            checkedCart.push(cart[idx]);
+        }
+    });
+    if (checkedCart.length === 0) return;
+    const email = prompt('Please enter your email for the receipt:', storedEmail || '');
+    if (!email) return;
+    storedEmail = email;
+    showTyping();
+    try {
+        var payload = {
+            session_id: sessionId || sessionStorage.getItem('bagbuddy_session') || ('sess_' + Date.now()),
+            items: checkedCart.map(function(i) {
+                return {product_id: i.id || i.product_id, name: i.name, price: i.price, quantity: i.quantity};
+            }),
+            user_email: email
+        };
+        if (!sessionId) sessionId = payload.session_id;
+        var res = await fetch(API_BASE + '/api/cart/checkout', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(payload)
+        });
+        var data = await res.json();
+        hideTyping();
+        if (data.checkout_url) {
+            cart = [];
+            updateCartUI();
+            updateCartBadge();
+            saveState();
+            var pname = data.product_name || 'Cart items';
+            var rawPrice = data.price || 0;
+            var priceStr = typeof rawPrice === 'number' ? '$' + rawPrice.toFixed(2) : '$' + parseFloat(rawPrice || 0).toFixed(2);
+            var merchant = data.merchant_name || 'Stripe Merchant';
+            var emailDisplay = data.email || email;
+            var card = '<div style="border:1px solid #e0e0e0;border-radius:12px;padding:16px;margin:10px 0;background:#fafafa;font-family:Arial,sans-serif">' +
+                '<div style="font-size:18px;font-weight:700;margin-bottom:12px;color:#333">' + pname + '</div>' +
+                '<div style="display:flex;justify-content:space-between;margin-bottom:8px;font-size:14px">' +
+                    '<span style="color:#666">Price:</span>' +
+                    '<span style="font-weight:600;color:#333">' + priceStr + '</span>' +
+                '</div>' +
+                '<div style="display:flex;justify-content:space-between;margin-bottom:8px;font-size:14px">' +
+                    '<span style="color:#666">Merchant:</span>' +
+                    '<span style="color:#333">' + merchant + '</span>' +
+                '</div>' +
+                '<div style="display:flex;justify-content:space-between;margin-bottom:12px;font-size:14px">' +
+                    '<span style="color:#666">Email:</span>' +
+                    '<span style="color:#333">' + emailDisplay + '</span>' +
+                '</div>' +
+                '<a href="' + data.checkout_url + '" target="_blank" style="display:block;text-align:center;padding:12px 20px;background:#c8553d;color:#fff;border-radius:8px;text-decoration:none;font-weight:600;font-size:15px">' + '💳 Pay with Stripe</a>' +
+                '</div>';
+            addMessage(card, 'assistant');
+            window.open(data.checkout_url, '_blank');
+        } else {
+            addMessage('Checkout error: ' + (data.detail || 'Unknown error'), 'assistant');
+        }
+    } catch (e) {
+        hideTyping();
+        addMessage('Checkout error: ' + e.message, 'assistant');
+    }
 }
 function saveState() {
     const messages = [];

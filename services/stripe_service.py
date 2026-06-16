@@ -37,6 +37,84 @@ def create_checkout_session(
         raise Exception(f"Stripe proxy error: {str(e)}")
 
 
+
+def create_line_items_checkout(
+    line_items: list,
+    user_email: str = None
+) -> str:
+    """Create a Stripe Checkout session with multiple line items via proxy"""
+    if not PROXY_BASE_URL:
+        raise Exception('PROXY_BASE_URL not configured. Set it in .env')
+
+    payload = {
+        'line_items': [
+            {
+                'product_id': item.get('product_id', ''),
+                'product_name': item.get('name', 'Product'),
+                'price': str(item.get('price', 0)),
+                'quantity': item.get('quantity', 1),
+            }
+            for item in line_items
+        ],
+        'success_url': 'http://localhost:9000/success?session_id={CHECKOUT_SESSION_ID}',
+        'cancel_url': 'http://localhost:9000/cancel',
+    }
+    if user_email:
+        payload['user_email'] = user_email
+
+    try:
+        resp = httpx.post(f'{PROXY_BASE_URL}/stripe/checkout', json=payload,
+            timeout=httpx.Timeout(connect=4.0, read=15.0, write=4.0, pool=4.0))
+        resp.raise_for_status()
+        data = resp.json()
+        if data.get('error'):
+            raise Exception(data['error'])
+        return data.get('url', '')
+    except httpx.HTTPStatusError as e:
+        raise Exception(f'Stripe proxy error: {e.response.text}')
+    except Exception as e:
+        raise Exception(f'Stripe proxy error: {str(e)}')
+
+
+
+def create_line_items_checkout(
+    line_items: list,
+    user_email: str = None
+) -> str:
+    """Create a Stripe Checkout session with multiple line items via proxy"""
+    if not PROXY_BASE_URL:
+        raise Exception("PROXY_BASE_URL not configured. Set it in .env")
+
+    payload = {
+        "line_items": [
+            {
+                "product_id": item.get("product_id", ""),
+                "product_name": item.get("name", "Product"),
+                "price": str(item.get("price", 0)),
+                "quantity": item.get("quantity", 1),
+            }
+            for item in line_items
+        ],
+        "success_url": "http://localhost:9000/success?session_id={CHECKOUT_SESSION_ID}",
+        "cancel_url": "http://localhost:9000/cancel",
+    }
+    if user_email:
+        payload["user_email"] = user_email
+
+    try:
+        resp = httpx.post(f"{PROXY_BASE_URL}/stripe/checkout", json=payload,
+            timeout=httpx.Timeout(connect=4.0, read=15.0, write=4.0, pool=4.0))
+        resp.raise_for_status()
+        data = resp.json()
+        if data.get("error"):
+            raise Exception(data["error"])
+        return data.get("url", "")
+    except httpx.HTTPStatusError as e:
+        raise Exception(f"Stripe proxy error: {e.response.text}")
+    except Exception as e:
+        raise Exception(f"Stripe proxy error: {str(e)}")
+
+
 def get_session(session_id: str) -> dict:
     """Retrieve a Checkout session by ID via proxy"""
     if not PROXY_BASE_URL:
