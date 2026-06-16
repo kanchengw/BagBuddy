@@ -1,0 +1,38 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+
+# Environment (user private config)
+.env
+*.env.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.wrangler/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# ML model cache
+~/.cache/huggingface/
+
+# Setup / initialization files (not needed to run BagBuddy)
+supabase_setup.sql
+supabase_rls.sql
+seed_products.py
+seed_embeddings.py
+seed_v2.py
+
+# Setup files (not needed to run BagBuddy)
+data/
+
+# Cloudflare Worker (deployed separately, not needed by users)
+proxy-worker.js

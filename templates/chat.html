@@ -1,0 +1,1008 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BagBuddy - AI Shopping Assistant</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz@9..40&family=Instrument+Serif&display=swap" rel="stylesheet">
+<style>
+:root {
+    --bg: #faf8f5;
+    --text: #1a1a1a;
+    --text-secondary: #6b6b6b;
+    --accent: #c8553d;
+    --border: #e0ddd8;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    overflow: hidden;
+}
+.nav {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 32px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+    background: var(--bg);
+}
+.nav-brand {
+    font-family: 'Instrument Serif', serif;
+    font-size: 20px;
+    color: var(--text);
+    text-decoration: none;
+}
+.nav-links { display: flex; gap: 16px; }
+.nav-links a {
+    font-size: 14px;
+    color: var(--text-secondary);
+    text-decoration: none;
+}
+.nav-links a:hover { color: var(--text); }
+.nav-links a.active { color: var(--accent); }
+.chat-container {
+    flex: 1;
+    overflow-y: auto;
+    padding: 32px;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+.welcome {
+    text-align: center;
+    padding: 64px 24px 32px;
+}
+.welcome h2 {
+    font-family: 'Instrument Serif', serif;
+    font-weight: 400;
+    font-size: 36px;
+    color: var(--text);
+    margin-bottom: 12px;
+}
+.welcome p {
+    font-size: 15px;
+    color: var(--text-secondary);
+    margin-bottom: 4px;
+    line-height: 1.6;
+}
+.message-wrapper {
+    display: flex;
+    flex-direction: column;
+    max-width: 75%;
+}
+.message-wrapper.user { align-self: flex-end; align-items: flex-end; }
+.message-wrapper.assistant { align-self: flex-start; align-items: flex-start; }
+.message-label {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    margin-bottom: 4px;
+    padding: 0 4px;
+}
+.message {
+    line-height: 1.65;
+    font-size: 15px;
+}
+.message-wrapper.user .message {
+    background: #ede8e3;
+    padding: 12px 16px;
+    border-radius: 8px;
+    color: var(--text);
+}
+.message-wrapper.assistant .message {
+    background: #f5f0ee;
+    padding: 12px 16px;
+    border-radius: 8px;
+    color: var(--text);
+}
+.message strong { color: var(--text); font-weight: 500; }
+.message ul { margin: 8px 0; padding-left: 20px; }
+.message li { margin-bottom: 4px; }
+.message a { color: var(--accent); text-decoration: none; }
+.message a:hover { text-decoration: underline; }
+.product-link { color: var(--accent); cursor: pointer; border-bottom: 1px dashed var(--accent); }
+.product-link:hover { background: rgba(200, 88, 61, 0.08); border-bottom-style: solid; }
+.typing-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-self: flex-start;
+    align-items: flex-start;
+}
+.typing-wrapper .message-label {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    margin-bottom: 4px;
+    padding: 0 4px;
+}
+.typing {
+    display: flex;
+    gap: 4px;
+    padding: 4px;
+}
+.typing span {
+    width: 6px;
+    height: 6px;
+    background: var(--text-secondary);
+    border-radius: 50%;
+    animation: fade 1.4s infinite;
+}
+.typing span:nth-child(2) { animation-delay: 0.2s; }
+.typing span:nth-child(3) { animation-delay: 0.4s; }
+@keyframes fade {
+    0%, 100% { opacity: 0.2; }
+    50% { opacity: 1; }
+}
+.quick-actions {
+    padding: 12px 32px;
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
+    align-items: center;
+    flex-shrink: 0;
+    background: var(--bg);
+}
+.quick-actions a {
+    font-size: 13px;
+    color: var(--accent);
+    text-decoration: underline;
+    cursor: pointer;
+}
+.quick-actions a:hover { color: var(--text); }
+.quick-actions .separator {
+    color: var(--text-secondary);
+    font-size: 13px;
+    margin: 0 4px;
+    user-select: none;
+}
+.input-container {
+    position: relative;
+    padding: 16px 32px;
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    border-top: 1px solid var(--border);
+    flex-shrink: 0;
+    background: var(--bg);
+}
+.input-container input {
+    flex: 1;
+    padding: 10px 16px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 15px;
+    outline: none;
+    background: white;
+}
+.input-container input::placeholder { color: var(--text-secondary); }
+.input-container input:focus { border-color: var(--accent); }
+.input-container button {
+    padding: 10px 16px;
+    border: none;
+    background: var(--accent);
+    color: white;
+    border-radius: 8px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+}
+.input-container button:hover { opacity: 0.9; }
+.input-container button:disabled { opacity: 0.5; cursor: default; }
+.msg-actions {
+    display: flex;
+    gap: 8px;
+    padding: 4px;
+}
+.action-btn {
+    padding: 8px 16px;
+    border: 1px solid var(--accent);
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    font-family: 'DM Sans', sans-serif;
+}
+.buy-btn { background: var(--accent); color: white; border: none; }
+.buy-btn:hover { opacity: 0.9; }
+.cart-btn { background: white; color: var(--accent); }
+.cart-btn:hover { background: var(--border); }
+.confirm-btn { background: var(--accent); color: white; border: none; }
+.confirm-btn:hover { opacity: 0.9; }
+.cart-icon-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 8px;
+    position: relative;
+    display: flex;
+    align-items: center;
+    color: var(--text);
+}
+.cart-icon-btn:hover { color: var(--accent); }
+.cart-badge {
+    position: absolute;
+    top: 0;
+    right: 0;
+    background: var(--accent);
+    color: white;
+    font-size: 10px;
+    padding: 2px 5px;
+    border-radius: 10px;
+    min-width: 16px;
+    text-align: center;
+}
+.cart-badge.empty { display: none; }
+.cart-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.3);
+    z-index: 100;
+}
+.cart-overlay.open { display: block; }
+.cart-drawer {
+    position: fixed;
+    top: 0;
+    right: -400px;
+    width: 380px;
+    height: 100%;
+    background: white;
+    z-index: 101;
+    display: flex;
+    flex-direction: column;
+    transition: right 0.3s;
+    box-shadow: -4px 0 20px rgba(0,0,0,0.1);
+}
+.cart-drawer.open { right: 0; }
+.cart-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 24px;
+    border-bottom: 1px solid var(--border);
+}
+.cart-header h3 {
+    font-family: 'Instrument Serif', serif;
+    font-size: 20px;
+    font-weight: 400;
+}
+.cart-close {
+    background: none;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+    color: var(--text-secondary);
+}
+.cart-close:hover { color: var(--text); }
+.cart-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px 24px;
+}
+.cart-empty {
+    text-align: center;
+    padding: 48px 0;
+    color: var(--text-secondary);
+}
+.cart-item {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border);
+}
+.cart-item:last-child { border-bottom: none; }
+.cart-item-info { flex: 1; }
+.cart-item-name {
+    font-size: 14px;
+    font-weight: 500;
+    margin-bottom: 4px;
+}
+.cart-item-price {
+    font-size: 14px;
+    color: var(--accent);
+}
+.cart-item-qty { display: flex; gap: 8px; align-items: center; margin-top: 4px; }
+.qty-btn {
+    width: 24px;
+    height: 24px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: white;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+}
+.qty-btn:hover { border-color: var(--accent); }
+.qty-value { font-size: 14px; min-width: 20px; text-align: center; }
+.cart-item-remove {
+    background: none;
+    border: none;
+    font-size: 18px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: 4px;
+}
+.cart-item-remove:hover { color: var(--accent); }
+.cart-footer {
+    padding: 16px 24px;
+    border-top: 1px solid var(--border);
+}
+.cart-total {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+.cart-total-label { font-size: 15px; font-weight: 500; }
+.cart-total-value { font-size: 18px; font-weight: 600; color: var(--accent); }
+.cart-checkout-btn {
+    width: 100%;
+    padding: 12px;
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 15px;
+    cursor: pointer;
+    font-family: 'DM Sans', sans-serif;
+}
+.cart-checkout-btn:hover { opacity: 0.9; }
+.cart-checkout-btn:disabled { opacity: 0.5; cursor: default; }
+.cart-actions { margin-bottom: 12px; }
+.cart-actions button {
+    padding: 8px 16px;
+    border: 1px solid var(--accent);
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    font-family: 'DM Sans', sans-serif;
+    background: white;
+    color: var(--accent);
+}
+.cart-compare-btn { width: 100%; }
+.cart-compare-btn:hover { background: var(--border); }
+.cart-compare-btn:disabled { opacity: 0.5; cursor: default; }
+.cart-compare-btn:disabled:hover { background: white; }
+.cart-select-all {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+    font-size: 13px;
+    color: var(--text-secondary);
+}
+.cart-select-all input { cursor: pointer; }
+</style>
+</head>
+<body>
+
+<nav class="nav">
+    <a href="/" class="nav-brand">BagBuddy</a>
+    <div class="nav-links">
+        <a href="/chat" class="active">Chat</a>
+        <a href="/dashboard">Dashboard</a>
+        <a href="/evaluation-dashboard">Evaluation</a>
+    </div>
+</nav>
+
+<div class="chat-container" id="chat">
+    <div class="welcome">
+        <h2>BagBuddy</h2>
+        <p>I can help you search, compare, and purchase products.</p>
+        <p>Try asking me about headphones, smartwatches, laptops, or any product.</p>
+    </div>
+    <div class="typing-wrapper" id="typing" style="display:none">
+        <div class="message-label">BagBuddy</div>
+        <div class="typing-text" style="padding:4px 12px 0;font-size:13px;color:#999;font-style:italic"></div>
+        <div class="typing">
+            <span></span><span></span><span></span>
+        </div>
+    </div>
+</div>
+
+<div class="quick-actions">
+    <a onclick="sendQuick('Show me smartphones')">Smartphones</a>
+    <span class="separator">路</span>
+    <a onclick="sendQuick('Show me headphones')">Headphones</a>
+    <span class="separator">路</span>
+    <a onclick="sendQuick('Show me smartwatches')">Wearables</a>
+    <span class="separator">路</span>
+    <a onclick="sendQuick('Show me laptops')">Laptops</a>
+    <span class="separator">路</span>
+    <a onclick="sendQuick('What products do you have')">All Products</a>
+</div>
+
+<div class="input-container">
+    <button class="cart-icon-btn" onclick="newChat()" title="New Chat" style="margin-right:8px">+</button>
+    <button class="cart-icon-btn" onclick="toggleCart()" title="Shopping Cart">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/>
+            <line x1="3" y1="6" x2="21" y2="6"/>
+            <path d="M16 10a4 4 0 01-8 0"/>
+        </svg>
+        <span class="cart-badge empty" id="cart-badge">0</span>
+    </button>
+    <input type="text" id="user-input" placeholder="Ask about products, compare, or buy..." autofocus>
+    <button onclick="sendMessage()">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="22" y1="2" x2="11" y2="13"/>
+            <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+        </svg>
+    </button>
+</div>
+
+<div class="cart-overlay" id="cart-overlay" onclick="toggleCart()"></div>
+<div class="cart-drawer" id="cart-drawer">
+    <div class="cart-header">
+        <h3>Shopping Cart</h3>
+        <button class="cart-close" onclick="toggleCart()">&times;</button>
+    </div>
+    <div class="cart-body" id="cart-body">
+        <div class="cart-empty">Your cart is empty</div>
+    </div>
+    <div class="cart-footer" id="cart-footer" style="display:none">
+        <div class="cart-actions">
+            <button class="cart-compare-btn" onclick="compareSelected()" disabled>Compare Selected</button>
+        </div>
+        <div class="cart-select-all">
+            <input type="checkbox" id="select-all" onchange="toggleSelectAll()">
+            <label for="select-all">Select All for Comparison</label>
+        </div>
+        <div class="cart-total">
+            <span class="cart-total-label">Total</span>
+            <span class="cart-total-value" id="cart-total"></span>
+        </div>
+        <button class="cart-checkout-btn" onclick="checkout()" disabled>Proceed to Checkout</button>
+    </div>
+</div>
+
+<script>
+let sessionId = null;
+let cart = [];
+const API_BASE = '';
+const STRIPE_PUBLIC_KEY = '';
+async function sendMessage() {
+    const input = document.getElementById("user-input");
+    const text = input.value.trim();
+    if (!text) return;
+    input.value = "";
+    addMessage(text, "user");
+    const chat = document.getElementById("chat");
+    const wrapper = document.createElement("div");
+    wrapper.className = "message-wrapper assistant";
+    const label = document.createElement("div");
+    label.className = "message-label";
+    label.textContent = "BagBuddy";
+    const msgDiv = document.createElement("div");
+    msgDiv.className = "message";
+    msgDiv.innerHTML = "<em>Looking up products...</em>";
+    wrapper.appendChild(label);
+    wrapper.appendChild(msgDiv);
+    chat.appendChild(wrapper);
+    chat.scrollTop = chat.scrollHeight;
+    try {
+        const res = await fetch(API_BASE + "/api/chat/stream", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({message: text, session_id: sessionId})
+        });
+        if (!res.ok) {
+            const errText = await res.text();
+            try {
+                const errJson = JSON.parse(errText);
+                msgDiv.innerHTML = "Error: " + (errJson.detail || errText);
+            } catch {
+                msgDiv.innerHTML = "Error: " + errText;
+            }
+            saveState();
+            return;
+        }
+        msgDiv.innerHTML = "";
+        let accumulatedText = "";
+        let finalProductInfo = null;
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+        while (true) {
+            const {done, value} = await reader.read();
+            if (done) break;
+            buffer += decoder.decode(value, {stream: true});
+            const lines = buffer.split("\n");
+            buffer = lines.pop() || "";
+            for (const line of lines) {
+                const trimmed = line.trim();
+                if (trimmed.startsWith("data: ")) {
+                    try {
+                        const event = JSON.parse(trimmed.slice(6));
+                        if (event.type === "meta" && event.session_id) {
+                            sessionId = event.session_id;
+                            sessionStorage.setItem("bagbuddy_session", sessionId);
+                            const storedStartup = sessionStorage.getItem('bagbuddy_startup');
+                            if (event.startup_time && storedStartup && event.startup_time !== storedStartup) {
+                                sessionStorage.removeItem('bagbuddy_messages');
+                                sessionStorage.removeItem('bagbuddy_cart');
+                                sessionStorage.removeItem('bagbuddy_session');
+                                location.reload();
+                            }
+                            if (event.startup_time) {
+                                sessionStorage.setItem('bagbuddy_startup', event.startup_time);
+                            }
+                        } else if (event.type === "chunk" && event.content) {
+                            hideTyping();
+                            accumulatedText += event.content;
+                            msgDiv.innerHTML = accumulatedText.replace(/\*\*/g, "").replace(/\n/g, "<br>");
+                            makeProductNamesClickable(msgDiv);
+                            chat.scrollTop = chat.scrollHeight;
+                            if (event.message_type === "product_info" && event.product_info) {
+                                addActionButtons(event.product_info, msgDiv);
+                            } else if (event.message_type === "search_results" && event.product_count >= 2 && event.product_count <= 5) {
+                                var actionsDiv = msgDiv.querySelector(".message-actions");
+                                if (!actionsDiv) {
+                                    actionsDiv = document.createElement("div");
+                                    actionsDiv.className = "message-actions";
+                                    msgDiv.appendChild(actionsDiv);
+                                }
+                                var compareBtn = document.createElement("button");
+                                compareBtn.className = "action-btn";
+                                compareBtn.textContent = "📊 Compare them";
+                                compareBtn.style.cssText = "background:#c8553d;color:#fff;border:1px solid #c8553d;padding:8px 16px;border-radius:6px;cursor:pointer;font-size:13px;font-family:DM Sans,sans-serif";
+                                compareBtn.onclick = function() { sendQuick("compare them"); };
+                                actionsDiv.appendChild(compareBtn);
+                                chat.scrollTop = chat.scrollHeight;
+                            }
+                        } else if (event.type === "tool_exec_start") {
+                            var statusText = "Looking up products...";
+                            if (event.name === "search_products") statusText = "Looking up products...";
+                            else if (event.name === "get_product_by_name" || event.name === "get_product_details") statusText = "Fetching product details...";
+                            else if (event.name === "compare_products") statusText = "Comparing products...";
+                            else if (event.name === "text_to_sql") statusText = "Querying database...";
+                            if (!accumulatedText) msgDiv.innerHTML = "<em>" + statusText + "</em>";
+                            chat.scrollTop = chat.scrollHeight;
+                        } else if (event.type === "tool_result" && event.text) {
+                            accumulatedText = event.text;
+                            msgDiv.innerHTML = accumulatedText.replace(/\*\*/g, "").replace(/\n/g, "<br>");
+                            if (event.product_info) finalProductInfo = event.product_info;
+                            chat.scrollTop = chat.scrollHeight;
+                        } else if (event.type === "done") {
+                            if (accumulatedText) makeProductNamesClickable(msgDiv);
+                            if (event.message_type === "error") {
+                                // Error was already shown via error event
+                            } else if (!accumulatedText && !finalProductInfo) {
+                                msgDiv.innerHTML = "I can help you search, compare, and purchase products.<br><br>Try asking me about headphones, smartwatches, laptops, or any product.";
+                                chat.scrollTop = chat.scrollHeight;
+                            }
+                        } else if (event.type === "request_email") {
+                            // Show email popup for purchase
+                            const pname = event.product_name || "Product";
+                            const pid = event.product_id || "";
+                            const email = prompt("Please enter your email for the " + pname + " purchase:");
+                            if (email) {
+                                showTyping();
+                                fetch(API_BASE + "/api/purchase", {
+                                    method: "POST",
+                                    headers: {"Content-Type": "application/json"},
+                                    body: JSON.stringify({product_id: pid, user_email: email})
+                                }).then(r => r.json()).then(data => {
+                                    hideTyping();
+                                    if (data.checkout_url) {
+                                        const pname = data.product_name || 'Product';
+                                        const rawPrice = data.price || 0;
+                                        const priceStr = typeof rawPrice === 'number' ? '$' + rawPrice.toFixed(2) : '$' + parseFloat(rawPrice || 0).toFixed(2);
+                                        const merchant = data.merchant_name || 'Stripe Merchant';
+                                        const email = data.email || "-";
+                                        const card = '<div style="border:1px solid #e0e0e0;border-radius:12px;padding:16px;margin:10px 0;background:#fafafa;font-family:Arial,sans-serif">' +
+                                            '<div style="font-size:18px;font-weight:700;margin-bottom:12px;color:#333">' + pname + '</div>' +
+                                            '<div style="display:flex;justify-content:space-between;margin-bottom:8px;font-size:14px">' +
+                                                '<span style="color:#666">Price:</span>' +
+                                                '<span style="font-weight:600;color:#333">' + priceStr + '</span>' +
+                                            '</div>' +
+                                            '<div style="display:flex;justify-content:space-between;margin-bottom:8px;font-size:14px">' +
+                                                '<span style="color:#666">Merchant:</span>' +
+                                                '<span style="color:#333">' + merchant + '</span>' +
+                                            '</div>' +
+                                            '<div style="display:flex;justify-content:space-between;margin-bottom:12px;font-size:14px">' +
+                                                '<span style="color:#666">Email:</span>' +
+                                                '<span style="color:#333">' + email + '</span>' +
+                                            '</div>' +
+                                            '<a href="' + data.checkout_url + '" target="_blank" style="display:block;text-align:center;padding:12px 20px;background:#c8553d;color:#fff;border-radius:8px;text-decoration:none;font-weight:600;font-size:15px">💳 Pay with Stripe</a>' +
+                                        '</div>';
+                                        addMessage(card, "assistant");
+                                        window.open(data.checkout_url, "_blank");
+                                    } else {
+                                        addMessage("Error creating payment", "assistant");
+                                    }
+                                }).catch(e => {
+                                    hideTyping();
+                                    addMessage("Error processing purchase", "assistant");
+                                });
+                            }
+                        } else if (event.type === "checkout_url") {
+                            // Payment link from create_checkout_session tool
+                            const url = event.url || "";
+                            const pname = event.product_name || "Product";
+                            const price = event.price || 0;
+                            const merchant = event.merchant_name || "Stripe Merchant";
+                            if (url) {
+                                const priceStr = typeof price === 'number' ? '$' + price.toFixed(2) : '$' + parseFloat(price || 0).toFixed(2);
+                                const card = '<div style="border:1px solid #e0e0e0;border-radius:12px;padding:16px;margin:10px 0;background:#fafafa;font-family:Arial,sans-serif">' +
+                                    '<div style="font-size:18px;font-weight:700;margin-bottom:12px;color:#333">' + pname + '</div>' +
+                                    '<div style="display:flex;justify-content:space-between;margin-bottom:8px;font-size:14px">' +
+                                        '<span style="color:#666">Price:</span>' +
+                                        '<span style="font-weight:600;color:#333">' + priceStr + '</span>' +
+                                    '</div>' +
+                                    '<div style="display:flex;justify-content:space-between;margin-bottom:8px;font-size:14px">' +
+                                        '<span style="color:#666">Merchant:</span>' +
+                                        '<span style="color:#333">' + merchant + '</span>' +
+                                    '</div>' +
+                                    '<div style="display:flex;justify-content:space-between;margin-bottom:12px;font-size:14px">' +
+                                        '<span style="color:#666">Email:</span>' +
+                                        '<span style="color:#333">' + (event.email || '?') + '</span>' +
+                                    '</div>' +
+                                    '<a href="' + url + '" target="_blank" style="display:block;text-align:center;padding:12px 20px;background:#c8553d;color:#fff;border-radius:8px;text-decoration:none;font-weight:600;font-size:15px">💳 Pay with Stripe</a>' +
+                                '</div>';
+                                addMessage(card, "assistant");
+                                window.open(url, "_blank");
+                            }
+                        } else if (event.type === "error") {
+                            accumulatedText += "\n\n[Error: " + event.content + "]";
+                            msgDiv.innerHTML = accumulatedText.replace(/\*\*/g, "").replace(/\n/g, "<br>");
+                        }
+                                        } catch(e) {}
+                }
+            }
+        }
+        saveState();
+        } catch (e) {
+            hideTyping();
+            addMessage("Sorry, there was an error: " + e.message, "assistant");
+        }
+        }function addMessage(text, role) {
+    const chat = document.getElementById('chat');
+    const wrapper = document.createElement('div');
+    wrapper.className = 'message-wrapper ' + role;
+    const label = document.createElement('div');
+    label.className = 'message-label';
+    label.textContent = role === 'user' ? 'You' : 'BagBuddy';
+    const msg = document.createElement('div');
+    msg.className = 'message';
+    var cleanText = text.replace(/\*\*/g, '');
+    msg.innerHTML = cleanText.replace(/\n/g, '<br>');
+    wrapper.appendChild(label);
+    wrapper.appendChild(msg);
+    chat.appendChild(wrapper);
+    chat.scrollTop = chat.scrollHeight;
+    if (role === 'assistant' && text.indexOf('Specifications:') === -1 && text.indexOf('Key Features:') === -1) makeProductNamesClickable(msg);
+}
+function sendQuick(text) {
+    document.getElementById('user-input').value = text;
+    sendMessage();
+}
+// Product names for clickable product links
+const PRODUCT_NAMES = [
+    "iPhone 15 Pro Max", "Samsung Galaxy S24 Ultra", "MacBook Air 15-inch M3",
+    "Dell XPS 16 Laptop", "iPad Pro 12.9-inch M4", "Samsung Galaxy Tab S9 Ultra",
+    "Sony WH-1000XM5 Wireless Headphones", "AirPods Pro 2nd Generation",
+    "Apple Watch Ultra 2", "Samsung Galaxy Watch 6 Classic",
+    "PlayStation 5 Slim Digital Edition", "Xbox Series X",
+    "Canon EOS R6 Mark II", "DJI Mavic 3 Pro Drone", "LG C3 65-inch OLED TV",
+    "Dell UltraSharp U2723QE 4K Monitor", "Razer BlackWidow V4 Pro Mechanical Keyboard",
+    "Logitech MX Master 3S", "Samsung 990 Pro 2TB NVMe SSD",
+    "Corsair Dominator Titanium 32GB DDR5 RAM", "NVIDIA GeForce RTX 4080 Super",
+    "AMD Ryzen 9 7950X Processor", "TP-Link Deco XE75 Mesh WiFi 6E",
+    "Amazon Kindle Scribe", "Sonos Era 300 Smart Speaker", "Nintendo Switch OLED",
+    "Anker PowerCore 26800mAh Power Bank", "Ring Video Doorbell Pro 2",
+    "Nest Learning Thermostat 4th Gen", "Meta Quest 3 VR Headset"
+];
+// Sort by length descending so longer names match first
+PRODUCT_NAMES.sort(function(a, b) { return b.length - a.length; });
+
+function makeProductNamesClickable(element) {
+    if (!element || !element.innerHTML) return;
+    if (element.dataset.linksDone === "true") return;
+    element.dataset.linksDone = "true";
+    var usedNames = {};
+    var walker = document.createTreeWalker(element, 4, null, false);
+    var textNodes = [];
+    while (walker.nextNode()) textNodes.push(walker.currentNode);
+    textNodes.forEach(function(textNode) {
+        var text = textNode.nodeValue;
+        var found = [];
+        PRODUCT_NAMES.forEach(function(name) {
+            if (usedNames[name]) return;
+            var pos = text.indexOf(name);
+            if (pos > -1) found.push({name: name, pos: pos, len: name.length});
+        });
+        if (found.length === 0) return;
+        found.sort(function(a, b) { return a.pos - b.pos; });
+        var unique = [];
+        var lastEnd = -1;
+        found.forEach(function(f) {
+            if (f.pos >= lastEnd) { unique.push(f); lastEnd = f.pos + f.len; }
+        });
+        var fragment = document.createDocumentFragment();
+        var cur = 0;
+        unique.forEach(function(f) {
+            if (f.pos > cur) fragment.appendChild(document.createTextNode(text.slice(cur, f.pos)));
+            var span = document.createElement('span');
+            span.className = 'product-link';
+            span.title = 'Click for details';
+            span.textContent = f.name;
+            span.addEventListener('click', function() { sendQuick('Tell me about ' + f.name); });
+            fragment.appendChild(span);
+            cur = f.pos + f.len;
+            usedNames[f.name] = true;
+        });
+        if (cur < text.length) fragment.appendChild(document.createTextNode(text.slice(cur)));
+        textNode.parentNode.replaceChild(fragment, textNode);
+    });
+}
+
+
+function showTyping() {
+    var el = document.getElementById('typing');
+    var chat = document.getElementById('chat');
+    chat.appendChild(el);
+    el.style.display = 'block';
+    chat.scrollTop = chat.scrollHeight;
+}
+function hideTyping() {
+    var el = document.getElementById('typing');
+    if (el) el.style.display = 'none';
+}
+function addActionButtons(product, targetEl) {
+    if (!product || !targetEl) return;
+    if (targetEl.querySelector('.msg-actions')) return;
+    const actions = document.createElement('div');
+    actions.className = 'msg-actions';
+    const buyBtn = document.createElement('button');
+    buyBtn.className = 'action-btn buy-btn';
+    buyBtn.textContent = 'Buy Now - ' + String.fromCharCode(36) + product.price;
+    buyBtn.onclick = function() { initPurchase(product.id); };
+    const cartBtn = document.createElement('button');
+    cartBtn.className = 'action-btn cart-btn';
+    cartBtn.textContent = 'Add to Cart';
+    cartBtn.onclick = function() { addToCart(product.id, product.name, product.price); };
+    actions.appendChild(buyBtn);
+    actions.appendChild(cartBtn);
+    targetEl.appendChild(actions);
+    var chatEl = document.getElementById('chat');
+    if (chatEl) chatEl.scrollTop = chatEl.scrollHeight;
+}
+function addPaymentLink(text) {
+    const chat = document.getElementById('chat');
+    const wrapper = document.createElement('div');
+    wrapper.className = 'message-wrapper assistant';
+    const msg = document.createElement('div');
+    msg.className = 'message';
+    msg.innerHTML = text;
+    wrapper.appendChild(msg);
+    chat.appendChild(wrapper);
+}
+async function initPurchase(productId) {
+    const email = prompt('Please enter your email for the receipt:');
+    if (!email) return;
+    showTyping();
+    try {
+        const res = await fetch(API_BASE + '/api/purchase', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({product_id: productId, user_email: email})
+        });
+        const data = await res.json();
+        hideTyping();
+        if (data.checkout_url) {
+            const pname2 = data.product_name || 'Product';
+            const rawPrice2 = data.price || 0;
+            const priceStr2 = typeof rawPrice2 === 'number' ? '$' + rawPrice2.toFixed(2) : '$' + parseFloat(rawPrice2 || 0).toFixed(2);
+            const merchant2 = data.merchant_name || 'Stripe Merchant';
+            const email2 = data.email || "-";
+            const card2 = '<div style="border:1px solid #e0e0e0;border-radius:12px;padding:16px;margin:10px 0;background:#fafafa;font-family:Arial,sans-serif">' +
+                '<div style="font-size:18px;font-weight:700;margin-bottom:12px;color:#333">' + pname2 + '</div>' +
+                '<div style="display:flex;justify-content:space-between;margin-bottom:8px;font-size:14px">' +
+                    '<span style="color:#666">Price:</span>' +
+                    '<span style="font-weight:600;color:#333">' + priceStr2 + '</span>' +
+                '</div>' +
+                '<div style="display:flex;justify-content:space-between;margin-bottom:8px;font-size:14px">' +
+                    '<span style="color:#666">Merchant:</span>' +
+                    '<span style="color:#333">' + merchant2 + '</span>' +
+                '</div>' +
+                '<div style="display:flex;justify-content:space-between;margin-bottom:12px;font-size:14px">' +
+                    '<span style="color:#666">Email:</span>' +
+                    '<span style="color:#333">' + email2 + '</span>' +
+                '</div>' +
+                '<a href="' + data.checkout_url + '" target="_blank" style="display:block;text-align:center;padding:12px 20px;background:#c8553d;color:#fff;border-radius:8px;text-decoration:none;font-weight:600;font-size:15px">💳 Pay with Stripe</a>' +
+            '</div>';
+            addMessage(card2, 'assistant');
+            window.open(data.checkout_url, '_blank');
+        } else {
+            addMessage('Error creating payment: ' + (data.detail || 'Unknown error'), 'assistant');
+        }
+    } catch (e) {
+        hideTyping();
+        addMessage('Error processing purchase', 'assistant');
+    }
+}
+function addToCart(id, name, price) {
+    cart.push({id, name, price, quantity: 1});
+    updateCartUI();
+    updateCartBadge();
+}
+function updateCartUI() {
+    const body = document.getElementById('cart-body');
+    const footer = document.getElementById('cart-footer');
+    if (cart.length === 0) {
+        body.innerHTML = '<div class="cart-empty">Your cart is empty</div>';
+        footer.style.display = 'none';
+        return;
+    }
+    footer.style.display = 'block';
+    let html = '';
+    let total = 0;
+    cart.forEach((item, idx) => {
+        total += item.price * item.quantity;
+        html += '<div class="cart-item">';
+        html += '<input type="checkbox" class="cart-checkbox" data-idx="' + idx + '" onchange="updateCompareBtn()">';
+        html += '<div class="cart-item-info">';
+        html += '<div class="cart-item-name">' + item.name + '</div>';
+        html += '<div class="cart-item-price">' + String.fromCharCode(36) + (item.price * item.quantity).toFixed(2) + '</div>';
+        html += '<div class="cart-item-qty">';
+        html += '<button class="qty-btn" onclick="changeQty(' + idx + ', -1)">-</button>';
+        html += '<span class="qty-value">' + item.quantity + '</span>';
+        html += '<button class="qty-btn" onclick="changeQty(' + idx + ', 1)">+</button>';
+        html += '</div></div>';
+        html += '<button class="cart-item-remove" onclick="removeFromCart(' + idx + ')">&times;</button>';
+        html += '</div>';
+    });
+    body.innerHTML = html;
+    document.getElementById('cart-total').textContent = String.fromCharCode(36) + total.toFixed(2);
+}
+function updateCartBadge() {
+    const badge = document.getElementById('cart-badge');
+    const count = cart.reduce((s, i) => s + i.quantity, 0);
+    badge.textContent = count;
+    badge.classList.toggle('empty', count === 0);
+}
+function changeQty(idx, delta) {
+    saveState();
+    cart[idx].quantity = Math.max(1, cart[idx].quantity + delta);
+    updateCartUI();
+    updateCartBadge();
+}
+function removeFromCart(idx) {
+    saveState();
+    cart.splice(idx, 1);
+    updateCartUI();
+    updateCartBadge();
+}
+function toggleCart() {
+    document.getElementById('cart-overlay').classList.toggle('open');
+    document.getElementById('cart-drawer').classList.toggle('open');
+}
+function updateCompareBtn() {
+    const checked = document.querySelectorAll('.cart-checkbox:checked');
+    const btn = document.querySelector('.cart-compare-btn');
+    btn.disabled = checked.length < 2;
+}
+function toggleSelectAll() {
+    const checked = document.getElementById('select-all').checked;
+    document.querySelectorAll('.cart-checkbox').forEach(cb => cb.checked = checked);
+    updateCompareBtn();
+}
+function compareSelected() {
+    const checked = document.querySelectorAll('.cart-checkbox:checked');
+    const names = Array.from(checked).map(cb => {
+        const idx = parseInt(cb.dataset.idx);
+        return cart[idx].name;
+    });
+    if (names.length < 2) return;
+    const msg = 'Compare these products: ' + names.join(', ');
+    document.getElementById('user-input').value = msg;
+    toggleCart();
+    sendMessage();
+}
+function checkout() {
+    addMessage('To checkout, please tell me which product you would like to purchase.', 'assistant');
+    toggleCart();
+}
+function saveState() {
+    const messages = [];
+    document.querySelectorAll('.message-wrapper').forEach(w => {
+        const role = w.classList.contains('user') ? 'user' : 'assistant';
+        const text = w.querySelector('.message')?.innerHTML || '';
+        messages.push({role, text});
+    });
+    sessionStorage.setItem('bagbuddy_messages', JSON.stringify(messages));
+    sessionStorage.setItem('bagbuddy_session', sessionId || '');
+    sessionStorage.setItem('bagbuddy_cart', JSON.stringify(cart));
+}
+function restoreState() {
+    const saved = sessionStorage.getItem('bagbuddy_messages');
+    if (saved) {
+        JSON.parse(saved).forEach(m => {
+            const chat = document.getElementById('chat');
+            const wrapper = document.createElement('div');
+            wrapper.className = 'message-wrapper ' + m.role;
+            const label = document.createElement('div');
+            label.className = 'message-label';
+            label.textContent = m.role === 'user' ? 'You' : 'BagBuddy';
+            const msg = document.createElement('div');
+            msg.className = 'message';
+            msg.innerHTML = m.text;
+            wrapper.appendChild(label);
+            wrapper.appendChild(msg);
+            chat.appendChild(wrapper);
+        });
+    }
+    const sid = sessionStorage.getItem('bagbuddy_session');
+    if (sid) sessionId = sid;
+    const savedCart = sessionStorage.getItem('bagbuddy_cart');
+    if (savedCart) {
+        cart = JSON.parse(savedCart);
+        if (cart.length > 0) {
+            updateCartUI();
+            updateCartBadge();
+        }
+    }
+}
+// Override addMessage to auto-save
+const origAddMsg = addMessage;
+addMessage = function(text, role) {
+    origAddMsg(text, role);
+    saveState();
+};
+document.addEventListener('DOMContentLoaded', function() {
+    checkServerRestart().then(function() {
+        restoreState();
+        var chat = document.getElementById('chat');
+        if (chat) chat.scrollTop = chat.scrollHeight;
+    });
+    document.getElementById('user-input').addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') sendMessage();
+    });
+});
+
+async function checkServerRestart() {
+    const storedStartup = sessionStorage.getItem('bagbuddy_startup');
+    if (!storedStartup) return;
+    try {
+        const res = await fetch('/api/startup');
+        const data = await res.json();
+        if (data.startup_time && data.startup_time !== storedStartup) {
+            sessionStorage.removeItem('bagbuddy_messages');
+            sessionStorage.removeItem('bagbuddy_cart');
+            sessionStorage.removeItem('bagbuddy_session');
+            sessionStorage.removeItem('bagbuddy_startup');
+            location.reload();
+        }
+    } catch(e) {
+        // server not reachable, keep history
+    }
+}
+function newChat() {
+    sessionStorage.removeItem('bagbuddy_messages');
+    sessionStorage.removeItem('bagbuddy_cart');
+    sessionStorage.removeItem('bagbuddy_session');
+    sessionStorage.removeItem('bagbuddy_startup');
+    location.reload();
+}
+
+</script>
+</body>
+</html>
+
+
+
+
+
