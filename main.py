@@ -1380,10 +1380,9 @@ async def seed_database():
 async def rag_health():
     """Check Supabase connection and product count"""
     try:
-        client = get_client()
-        result = client.table("products").select("count", count="exact").limit(1).execute()
-        count = result.count if hasattr(result, "count") else "unknown"
-        return {"status": "ok", "products_in_db": count}
+        from services.supabase_service import get_all_products_db
+        products = get_all_products_db()
+        return {"status": "ok", "products_in_db": len(products), "connection": "proxy"}
     except Exception as e:
         return {"status": "error", "message": str(e)}
 
